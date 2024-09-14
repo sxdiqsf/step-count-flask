@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Step Counter</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h1>Step Counter Using Device Sensors</h1>
+    <button id="start-btn">Start Walking</button>
+    <button id="stop-btn" disabled>Stop Walking</button>
+
+    <div id="result">
+        <p>Steps: <span id="steps">0</span></p>
+    </div>
+
+    <script>
+        let stepCount = 0;
+        let isWalking = false;
+        let previousAcceleration = { x: 0, y: 0, z: 0 };
+        let threshold = 2;  // Sensitivity threshold for detecting steps
+
+        // Function to start step counting
+        $("#start-btn").click(function () {
+            $.post("/start", function (data) {
+                console.log(data.message);
+                $("#start-btn").prop('disabled', true);
+                $("#stop-btn").prop('disabled', false);
+                stepCount = 0;
+                $("#steps").text(0);
+
+                if (window.DeviceMotionEvent) {
+                    // Listen for motion events from the device
+                    window.addEventListener("devicemotion", handleMotion);
+                    isWalking = true;
+                } else {
+                    alert("Device Motion API is not supported on this device.");
+                }
+            });
+        });
+
+        // Function to stop step counting
+        $("#stop-btn").click(function () {
+            isWalking = false;
+            window.removeEventListener("devicemotion", handleMotion);  // Stop listening to motion events
+            $.post("/stop", function (data) {
+                $("#start-btn").prop('disabled', false);
+                $("#stop-btn").prop('disabled', true);
+                console.log(data.message);
+            });
+        });
+
+        // Function to handle motion events
+        function handleMotion(event) {
+            if (!isWalking) return;
+
+            let acceleration = event.accelerationIncludingGravity;
+
+            // Calculate the difference between the current and previous acceleration values
+            let deltaX = Math.abs(acceleration.x - previousAcceleration.x);
+            let deltaY = Math.abs(acceleration.y - previousAcceleration.y);
+            let deltaZ = Math.abs(acceleration.z - previousAcceleration.z);
+
+            // If the change exceeds the threshold, consider it a step
+            if (deltaX > threshold || deltaY > threshold || deltaZ > threshold) {
+                stepCount++;
+                $("#steps").text(stepCount);
+            }
+
+            // Store the current acceleration values for the next comparison
+            previousAcceleration = {
+                x: acceleration.x,
+                y: acceleration.y,
+                z: acceleration.z
+            };
+        }
+    </script>
+</body>
+</html>
